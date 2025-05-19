@@ -1,0 +1,58 @@
+Installation on ubuntu according to manticore website:
+
+
+Install Manticore Search on Debian, Ubuntu or Linux Mint using APT
+
+Install the APT repository and the new version:
+
+wget https://repo.manticoresearch.com/manticore-repo.noarch.deb
+sudo dpkg -i manticore-repo.noarch.deb
+sudo apt update
+sudo apt install manticore manticore-extra
+
+
+################################################################################
+Notes at the end of the installation in terminal:
+
+Manticore Search (https://manticoresearch.com)
+
+Get started with Manticore Search:
+  https://manual.manticoresearch.com/Quick_start_guide
+
+Learn Manticore with interactive courses:
+  https://play.manticoresearch.com/
+
+Configuration file:
+   /etc/manticoresearch/manticore.conf
+
+Setting up manticore-server (7.0.0-25013002-92c650401) ...
+To start Manticore Search, run the following command:
+  > systemctl start manticore
+Setting up manticore (7.0.0-25013002-92c650401) ...
+Processing triggers for man-db (2.10.2-1) ...
+
+
+
+################################################################################
+Installing lemmatizers
+
+sudo apt install manticore-language-packs
+
+
+################################################################################
+After the installation the Manticore Search service is not started automatically.
+
+To start Manticore run the following command:
+sudo systemctl start manticore
+
+To stop Manticore run the following command:
+sudo systemctl stop manticore
+
+The Manticore service is set to run at boot. You can check it by running:
+sudo systemctl is-enabled manticore
+
+If you want to disable Manticore from starting at boot time, run:
+sudo systemctl disable manticore
+
+To make Manticore start at boot, run:
+sudo systemctl enable manticore
