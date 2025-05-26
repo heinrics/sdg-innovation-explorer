@@ -1,9 +1,10 @@
+import os
+import yaml
 import sys
 import pandas as pd
 import dask.dataframe as dd
 import manticoresearch
 from ast import literal_eval
-import duckdb as ddb
 
 
 # base_path = '/Users/sebastianheinrich/Dropbox/Doktorat KOF ETH - arbeit/01 - Projekte - Doktorat/105-tech-frontier/'
@@ -14,32 +15,37 @@ base_path = '/mnt/7adaf322-ecbb-4b5d-bc6f-4c54f7f808eb/Dropbox/Doktorat KOF ETH 
 
 # Computer currently running on
 WORK_ENV = sys.platform # linux | darwin
-EXT_DRIVE = 'tb4m2' # tb4m2, T5 EVO
 
-# Directory paths
-if WORK_ENV == 'darwin':
-    PROJ_DIR = '/Users/sebastianheinrich/Dropbox/EPO-Code-FEST-SDG'
-    EXT_DRIVE = '/Volumes/' + EXT_DRIVE
+# Load config from a file if exists
+config_file = "config.yaml"
+if os.path.exists(config_file):
+    with open(config_file, "r") as f:
+        config = yaml.safe_load(f)
 
-elif WORK_ENV == 'linux':
-    PROJ_DIR = '/mnt/7adaf322-ecbb-4b5d-bc6f-4c54f7f808eb/Dropbox/EPO-Code-FEST-SDG/'
-    EXT_DRIVE = '/media/heinrics/' + EXT_DRIVE
+    if WORK_ENV == 'linux':
+        LOCAL_PATH = config.get("local_path_linux")
+        REMOTE_DRIVE = config.get("remote_path_linux")
+
+    elif WORK_ENV == 'darwin':
+        LOCAL_PATH = config.get("local_path_darwin")
+        REMOTE_DRIVE = config.get("remote_path_darwin")
+
+else:
+    LOCAL_PATH = None
+    REMOTE_DRIVE = None
 
 # Works
-PAT_TABLE = EXT_DRIVE + '/tech-frontier/intermediate-data/pat-texts/filing_year=*/data_*.parquet'
-
+PAT_TABLE = REMOTE_DRIVE + '/tech-frontier/intermediate-data/pat-texts/filing_year=*/data_*.parquet'
 
 # Pandas display options
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1500)
 
 
-
 # Connect to manticore #########################################################
 config = manticoresearch.Configuration(
     host = "http://127.0.0.1:9308"
 )
-
 
 # Search in patent data ########################################################
 
@@ -51,14 +57,6 @@ meta = {'publication_number': 'string',
 
 def pat_keyword_search(input_df):
 
-    # print(input_df.shape)
-
-    # Search by splitting queries into chunks
-
-    # Split queries in sub-lists
-    # doc_chunks = [docs[x:x + 1000] for x in range(0, len(docs), 1000)]
-
-
     result_df_list = []
 
     # Chunk dataframe in smaller parts
@@ -68,8 +66,6 @@ def pat_keyword_search(input_df):
         chunk_df = input_df.iloc[start:start + chunk_size].copy()
         # Set index to 1-based
         chunk_df.index = range(1, len(chunk_df) + 1)
-
-        # print(chunk_df.shape)
 
         # Restructure texts for queries
         docs = []
@@ -90,8 +86,6 @@ def pat_keyword_search(input_df):
 
             docs.append(doc)
 
-        # for doc_chunk in doc_chunks:
-
         query = {"query": {"percolate": {"documents": docs}}}
 
         # Search for keywords in manticore
@@ -102,20 +96,11 @@ def pat_keyword_search(input_df):
             res = searchApi.percolate('pq_sdg_queries_en', query)
 
         # Extract keyword identifiers from search results
-        # print(len(res.hits.hits))
-
-        # Search results
         hits_list = []
 
         for hit in res.hits.hits:
 
-            # print(hit)
-
-            # q_id = hit['_id']
-            # score = hit['_score']
             tags = hit['_source']['tags'] # .split(',')
-
-            # print(hit['_source']['query'])
 
             hits_list.append(
                     (tags, hit['fields']['_percolator_document_slot']))
@@ -135,14 +120,7 @@ def pat_keyword_search(input_df):
         # Concatenate concept ids
         hits_df = hits_df.groupby('doc_index')['sdg'].apply(
             lambda x: '[' + '; '.join(
-                x) + ']').reset_index()  # .sort_values('doc_index') # .drop(columns='doc_index')
-
-        # search_res_df = title_df.merge(abstract_df,
-        #                             on='doc_index',
-        #                             how='outer',
-        #                             suffixes=('_title', '_abstract'))
-
-        # keyword_df.set_index(keyword_df['doc_index'] - 1)
+                x) + ']').reset_index()
 
         # Merge identifiers from initial dataframe
         chunk_df = chunk_df[['publication_number', 'title', 'abstract']].merge(
@@ -159,12 +137,9 @@ def pat_keyword_search(input_df):
 
         result_df_list.append(chunk_df)
 
-        # del search_res_df
-
         result_df = pd.concat(result_df_list)
 
     return result_df[list(meta.keys())]
-
 
 
 if __name__ == '__main__':
@@ -183,10 +158,8 @@ if __name__ == '__main__':
 
     pat_dd = pat_dd.map_partitions(pat_keyword_search, meta=meta)
 
-    # print(pat_dd.head(1))
-
     # Export to parquet
-    pat_dd.to_parquet(EXT_DRIVE + '/sdg-innovation-explorer/intermediate-data/pat-keywords-no-morphology/',
+    pat_dd.to_parquet(REMOTE_DRIVE + '/sdg-innovation-explorer/intermediate-data/pat-keywords-no-morphology/',
                       schema=meta,
                       write_index=False,
                       compression='zstd')

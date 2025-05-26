@@ -1,24 +1,34 @@
+import os
+import yaml
 import sys
 import xml.etree.ElementTree as ET
 import re
 import pandas as pd
-from collections import defaultdict
 
 # SET environment ##############################################################
 ################################################################################
 
 # Computer currently running on
 WORK_ENV = sys.platform # linux | darwin
-EXT_DRIVE = 'tb4m2' # tb4m2, T5 EVO
 
-# Directory paths
-if WORK_ENV == 'darwin':
-    PROJ_DIR = '/Users/sebastianheinrich/Dropbox/EPO-Code-FEST-SDG'
-    EXT_DRIVE = '/Volumes/' + EXT_DRIVE
+# Load config from a file if exists
+config_file = "config.yaml"
+if os.path.exists(config_file):
+    with open(config_file, "r") as f:
+        config = yaml.safe_load(f)
 
-elif WORK_ENV == 'linux':
-    PROJ_DIR = '/mnt/7adaf322-ecbb-4b5d-bc6f-4c54f7f808eb/Dropbox/EPO-Code-FEST-SDG/'
-    EXT_DRIVE = '/media/heinrics/' + EXT_DRIVE
+    if WORK_ENV == 'linux':
+        LOCAL_PATH = config.get("local_path_linux")
+        REMOTE_DRIVE = config.get("remote_path_linux")
+
+    elif WORK_ENV == 'darwin':
+        LOCAL_PATH = config.get("local_path_darwin")
+        REMOTE_DRIVE = config.get("remote_path_darwin")
+
+else:
+    LOCAL_PATH = None
+    REMOTE_DRIVE = None
+
 
 # Pandas display options
 pd.set_option('display.max_columns', 100)
@@ -99,7 +109,7 @@ for sdg_goal in range(1, 17+1):
 
     # File path to original xml file
     # Manually downloaded from https://aurora-network-global.github.io/sdg-queries/
-    path = f'{PROJ_DIR}/Data/sdg-queries/query_SDG{sdg_goal}.xml'
+    path = f'{LOCAL_PATH}/Data/sdg-queries/query_SDG{sdg_goal}.xml'
 
     # Read XML file
     with open(path, 'r', encoding='utf-8') as f:
@@ -176,6 +186,5 @@ def wrap_terms(expression: str) -> str:
 
 query_df['text'] = query_df['text'].apply(lambda x: wrap_terms(x))
 
-
 # Serialize pandas dataframe to parquet
-query_df.to_parquet(f'{PROJ_DIR}/Data/sdg-queries/manticore-queries.parquet')
+query_df.to_parquet(f'{LOCAL_PATH}/Data/sdg-queries/manticore-queries.parquet')

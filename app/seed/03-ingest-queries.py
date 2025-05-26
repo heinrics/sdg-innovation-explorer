@@ -1,3 +1,5 @@
+import os
+import yaml
 import sys
 import pandas as pd
 import json
@@ -7,35 +9,36 @@ import manticoresearch
 # SET environment ##############################################################
 ################################################################################
 
+
 # Computer currently running on
 WORK_ENV = sys.platform # linux | darwin
-EXT_DRIVE = 'tb4m2' # tb4m2, T5 EVO
 
-# Directory paths
-if WORK_ENV == 'darwin':
-    PROJ_DIR = '/Users/sebastianheinrich/Dropbox/EPO-Code-FEST-SDG'
-    EXT_DRIVE = '/Volumes/' + EXT_DRIVE
+# Load config from a file if exists
+config_file = "config.yaml"
+if os.path.exists(config_file):
+    with open(config_file, "r") as f:
+        config = yaml.safe_load(f)
 
-elif WORK_ENV == 'linux':
-    PROJ_DIR = '/mnt/7adaf322-ecbb-4b5d-bc6f-4c54f7f808eb/Dropbox/EPO-Code-FEST-SDG/'
-    EXT_DRIVE = '/media/heinrics/' + EXT_DRIVE
+    if WORK_ENV == 'linux':
+        LOCAL_PATH = config.get("local_path_linux")
+        REMOTE_DRIVE = config.get("remote_path_linux")
 
-# Pandas display options
-pd.set_option('display.max_columns', 500)
-pd.set_option('display.width', 1000)
+    elif WORK_ENV == 'darwin':
+        LOCAL_PATH = config.get("local_path_darwin")
+        REMOTE_DRIVE = config.get("remote_path_darwin")
 
+else:
+    LOCAL_PATH = None
+    REMOTE_DRIVE = None
 
 # Ingest SDG queries into manticore search #####################################
 ################################################################################
 
 # Load queries
-query_df = pd.read_parquet(f'{PROJ_DIR}/Data/sdg-queries/manticore-queries.parquet')
-
-# query_df['text'] = query_df['text'].str.replace('"', '')
+query_df = pd.read_parquet(f'{LOCAL_PATH}/Data/sdg-queries/manticore-queries.parquet')
 
 
 # Generate query list
-
 # List of title, abstract queries
 en_sdg_rule_list = (query_df.apply(lambda x: {'query': f'@@relaxed @doctext {x['text']}', # }, #,
                                               'tags': str(x['goal']) + ', ' + str(x['section'])},
@@ -68,6 +71,7 @@ with manticoresearch.ApiClient(config) as api_client:
     res = indexApi.bulk(en_sdg_rule_json_str)
     print(res)
 
+    # Inspect ingested query rules
     # Query the first 10 rows from the PQ table
     res = utilsApi.sql("SELECT * FROM pq_sdg_queries_en LIMIT 10;")
     print(res)
@@ -76,15 +80,3 @@ with manticoresearch.ApiClient(config) as api_client:
         print(item)
 
     print(utilsApi.sql("SELECT count(*) FROM pq_sdg_queries_en;"))
-
-
-
-# indexApi.insert({"table" : "pq_sdg_queries_en", "doc" : {"query" : "(poverty) NEAR/3 ((living) | (life) | (child*) | (socioeconomic*) | (socio-economic*) | (social welfare) | (household*) | (income*)) | (poverty line*)" }})
-# indexApi.insert({"table" : "pq_sdg_queries_en", "doc" : {"query" : "((SDG*) | (sustainable development*)) NEAR/3 ((progress*) | (measurement*) | (measuring) | (monitor*))" }})
-# indexApi.insert({"table" : "pq_sdg_queries_en", "doc" : {"query" : "(population census | housing census | birth registration* | death registration*)" }})
-# indexApi.insert({"table" : "pq_sdg_queries_en", "doc" : {"query" : "(population census) | (housing census) | (birth registration*) | (death registration*)" }})
-# indexApi.insert({"table" : "pq_sdg_queries_en", "doc" : {"query" : "@doctext poverty" }})
-# indexApi.insert({"table" : "pq_sdg_queries_en", "doc" : {"query" : "@doctext ((poverty) NEAR/3 (living | life | child* | socioeconomic* | socio-economic* | social welfare | household* | income*)) | (poverty line*)" }})
-# indexApi.insert({"table" : "pq_sdg_queries_en", "doc" : {"query" : "@doctext (poverty) NEAR/3 (living) | (poverty line*)" }})
-# indexApi.insert({"table" : "pq_sdg_queries_en", "doc" : {"query" : "@doctext ((poverty) NEAR/3 (living | social welfare)) | (poverty line*)" }})
-

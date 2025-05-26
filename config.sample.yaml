@@ -1,0 +1,7 @@
+# Local project directory paths
+local_path_linux: /mnt/your-linux-drive-id/SDG-Explorer
+local_path_darwin: /Users/your-mac-username/SDG-Explorer
+
+# Remote location (can be an external drive or server mount point)
+remote_path_linux: /your-path-to/remote-data
+remote_path_darwin: /your-path-to/remote-data
